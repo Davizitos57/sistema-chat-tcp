@@ -229,12 +229,9 @@ def receive():
                 status_label.config(text="Aguardando jogada do oponente")
 
             elif parts[0] in ["VICTORY", "DEFEAT", "DRAW", "TIMEOUT"]:
-<<<<<<< HEAD
-                disable_board()
-=======
+
                 reset_board()   
                 disable_board() 
->>>>>>> main
                 symbol_label.config(text="Símbolo: -")
                 opponent_label.config(text="Oponente: -")
                 status_label.config(text="Partida finalizada")
