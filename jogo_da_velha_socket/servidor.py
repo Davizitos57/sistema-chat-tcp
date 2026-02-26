@@ -3,8 +3,9 @@ import ssl
 import threading
 import time
 
-HOST = "0.0.0.0"
-PORT = 5000
+HOST = "0.0.0.0"  # Escuta em todas as interfaces de rede
+PORT = 5000       # Porta principal do jogo (TCP/SSL)
+DISCOVERY_PORT = 5001 # Porta para descoberta automática (UDP)
 
 clients = {}
 games = {}
@@ -12,6 +13,22 @@ boards = {}
 symbols = {}
 turns = {}
 timers = {}
+
+# ================= DISCOBERTA AUTOMÁTICA (NOVO) =================
+
+def broadcast_server_discovery():
+    """Envia um sinal UDP para a rede para que os clientes encontrem o servidor."""
+    discovery_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    message = "TIC_TAC_TOE_SERVER_HERE".encode()
+    
+    while True:
+        try:
+            # Envia para o endereço de broadcast da rede local
+            discovery_socket.sendto(message, ('<broadcast>', DISCOVERY_PORT))
+            time.sleep(2)
+        except Exception as e:
+            print(f"Erro no broadcast de descoberta: {e}")
 
 # ================= UTIL =================
 
@@ -168,6 +185,7 @@ def handle_client(conn):
 
 # ================= SERVER =================
 
+# Configuração SSL
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain("cert.pem", "key.pem")
 
@@ -175,7 +193,11 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((HOST, PORT))
 server.listen()
 
-print("Servidor iniciado...")
+# Inicia a thread de anúncio do servidor na rede local
+threading.Thread(target=broadcast_server_discovery, daemon=True).start()
+
+print(f"Servidor iniciado em {HOST}:{PORT}...")
+print("Anunciando presença na rede local (Porta UDP 5001)...")
 
 while True:
     conn, addr = server.accept()

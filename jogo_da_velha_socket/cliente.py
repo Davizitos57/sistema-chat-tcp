@@ -4,13 +4,37 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 
-HOST = "127.0.0.1"
 PORT = 5000
+DISCOVERY_PORT = 5001
 
 nickname = ""
 my_symbol = "-"
 current_opponent = "-"
 board_buttons = []
+
+# ================= DESCOBERTA AUTOMÁTICA (NOVO) =================
+
+def discover_server_ip():
+    """Escuta o sinal de broadcast do servidor para obter o IP automaticamente."""
+    print("A procurar servidor na rede local...")
+    discovery_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    # Permite que várias instâncias escutem a mesma porta se necessário
+    discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    discovery_socket.bind(('', DISCOVERY_PORT))
+    
+    while True:
+        try:
+            data, addr = discovery_socket.recvfrom(1024)
+            if data.decode() == "TIC_TAC_TOE_SERVER_HERE":
+                print(f"Servidor encontrado no IP: {addr[0]}")
+                discovery_socket.close()
+                return addr[0]
+        except Exception as e:
+            print(f"Erro na descoberta: {e}")
+
+# Obtém o HOST dinamicamente antes de prosseguir
+HOST = discover_server_ip()
 
 # ================= SOCKET =================
 
@@ -29,6 +53,8 @@ def send(msg):
 
 while True:
     nickname = simpledialog.askstring("Login", "Digite seu nickname:")
+    if not nickname:
+        exit()
     send(f"REGISTER {nickname}")
     response = client.recv(1024).decode().strip()
     if response == "OK":
@@ -155,12 +181,16 @@ def receive():
     while True:
         try:
             msg = client.recv(1024).decode().strip()
+            if not msg:
+                break
+            
             parts = msg.split()
 
             if parts[0] == "USER_LIST":
                 users_listbox.delete(0, tk.END)
-                for u in parts[1].split(","):
-                    users_listbox.insert(tk.END, u)
+                if len(parts) > 1:
+                    for u in parts[1].split(","):
+                        users_listbox.insert(tk.END, u)
 
             elif parts[0] == "INVITE_FROM":
                 if messagebox.askyesno("Convite",
@@ -190,11 +220,11 @@ def receive():
 
             elif parts[0] in ["VICTORY", "DEFEAT", "DRAW", "TIMEOUT"]:
                 disable_board()
-                reset_board()
                 symbol_label.config(text="Símbolo: -")
                 opponent_label.config(text="Oponente: -")
                 status_label.config(text="Partida finalizada")
                 messagebox.showinfo("Resultado", parts[0])
+                reset_board()
 
         except:
             break
